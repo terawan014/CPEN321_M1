@@ -48,6 +48,16 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import android.util.Log
+import okio.ByteString
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Color
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +99,17 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
     var clientTimeText by remember { mutableStateOf("Loading client time...") }
     var clientIpText by remember { mutableStateOf("Loading client IP...") }
 
+    // button 2
+    val pixels = remember {
+        mutableStateListOf<String>().apply {
+            repeat(256) {
+                add("#FFFFFF")
+            }
+        }
+    }
+    var pixelWebSocket by remember { mutableStateOf<WebSocket?>(null) }
+    var currentScreen by remember { mutableStateOf("home") }
+
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             val nameJson = fetchApi(apiBaseUrl, "/name")
@@ -110,7 +131,10 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
             .fillMaxSize()
             .padding(top = 24.dp)
     ) {
-        if (!isLoggedIn) {
+
+        if (currentScreen == "home") {
+
+            // Button 1 = Google Login
             Button(
                 onClick = {
                     loginStatusText = "Opening Google sign-in..."
@@ -126,7 +150,8 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
 
                             if (
                                 credential is CustomCredential &&
-                                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                                credential.type ==
+                                GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                             ) {
                                 val googleCredential =
                                     GoogleIdTokenCredential.createFrom(credential.data)
@@ -138,6 +163,7 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                                     "Google User Name: ${"$firstName $lastName".trim()}"
 
                                 isLoggedIn = true
+                                currentScreen = "button1"
                             }
 
                         } catch (e: GetCredentialException) {
@@ -152,16 +178,40 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text("Sign in with Google")
-
+                Text("Button 1: Sign in with Google")
             }
 
-            Text(text = loginStatusText,
-                modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text(
+                text = loginStatusText,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
 
+            Spacer(modifier = Modifier.height(24.dp))
 
-        } else {
-            Spacer(modifier = Modifier.height(168.dp))
+            // Button 2
+            Button(
+                onClick = {
+                    currentScreen = "button2"
+
+                    if (pixelWebSocket == null) {
+                        pixelWebSocket = connectToPixelWebSocket { pixel ->
+                            val index = pixel.y * 16 + pixel.x
+
+                            if (index in 0 until 256) {
+                                pixels[index] = pixel.color
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text("Button 2: Live Updates")
+            }
+        }
+
+        else if (currentScreen == "button1") {
+
+            Spacer(modifier = Modifier.height(80.dp))
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -174,14 +224,22 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                 Text(text = clientIpText)
             }
         }
-    }
-    // Button 2
-    Button(
-        onClick = {
-            connectToPixelWebSocket()
+
+        else if (currentScreen == "button2") {
+
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Pixel Art")
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                PixelGrid(
+                    pixels = pixels
+                )
+            }
         }
-    ) {
-        Text("Button 2")
     }
 }
 
@@ -261,23 +319,59 @@ private fun getClientIp(): String {
     }
     return "Unknown"
 }
+
+
+// Button 2
+@Composable
+fun PixelGrid(
+    pixels: List<String>,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(1.dp)
+    ) {
+        for (y in 0 until 16) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                for (x in 0 until 16) {
+                    val index = y * 16 + x
+                    val cellColor = colorFromHex(pixels[index])
+
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(cellColor)
+                            .border(0.5.dp, Color.LightGray)
+                    )
+                }
+            }
+        }
+    }
+}
+
 // receive data from websocket
-private fun connectToPixelWebSocket() {
+private fun connectToPixelWebSocket(
+    onPixelUpdate: (PixelUpdate) -> Unit
+): WebSocket {
     val client = OkHttpClient()
 
     val request = Request.Builder()
         .url("wss://34.123.228.126/ws")
         .build()
 
-    client.newWebSocket(
+    return client.newWebSocket(
         request,
         object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                println("Pixel WebSocket connected")
+                Log.d("PixelWS", "Connected")
             }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                println("Pixel message: $text")
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                val text = bytes.utf8()
+                val pixel = parsePixelUpdate(text)
+                onPixelUpdate(pixel)
             }
 
             override fun onFailure(
@@ -285,8 +379,35 @@ private fun connectToPixelWebSocket() {
                 t: Throwable,
                 response: Response?
             ) {
-                println("Pixel WebSocket error: ${t.message}")
+                Log.e("PixelWS", "Error: ${t.message}", t)
             }
         }
     )
+}
+
+// parse pixel message
+data class PixelUpdate(
+    val x: Int,
+    val y: Int,
+    val color: String
+)
+private fun parsePixelUpdate(json: String): PixelUpdate {
+    val jsonObject = JSONObject(json)
+    val x = jsonObject.getInt("x")
+    val y = jsonObject.getInt("y")
+    val color = jsonObject.getString("color")
+
+    return PixelUpdate(
+        x = x,
+        y = y,
+        color = color
+    )
+}
+
+private fun colorFromHex(hex: String): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (e: Exception) {
+        Color.White
+    }
 }
