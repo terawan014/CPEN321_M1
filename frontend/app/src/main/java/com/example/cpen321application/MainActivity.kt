@@ -43,6 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,6 +175,14 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
             }
         }
     }
+    // Button 2
+    Button(
+        onClick = {
+            connectToPixelWebSocket()
+        }
+    ) {
+        Text("Button 2")
+    }
 }
 
 private suspend fun fetchApi(apiBaseUrl: String, endpoint: String): String = withContext(Dispatchers.IO) {
@@ -247,4 +260,33 @@ private fun getClientIp(): String {
         }
     }
     return "Unknown"
+}
+// receive data from websocket
+private fun connectToPixelWebSocket() {
+    val client = OkHttpClient()
+
+    val request = Request.Builder()
+        .url("wss://34.123.228.126/ws")
+        .build()
+
+    client.newWebSocket(
+        request,
+        object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                println("Pixel WebSocket connected")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                println("Pixel message: $text")
+            }
+
+            override fun onFailure(
+                webSocket: WebSocket,
+                t: Throwable,
+                response: Response?
+            ) {
+                println("Pixel WebSocket error: ${t.message}")
+            }
+        }
+    )
 }
