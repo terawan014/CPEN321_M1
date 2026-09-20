@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Column
 import org.json.JSONObject
@@ -57,7 +56,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Color
-
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import coil.compose.AsyncImage
+import androidx.compose.runtime.mutableStateListOf
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,6 +115,27 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
     var pixelWebSocket by remember { mutableStateOf<WebSocket?>(null) }
     var currentScreen by remember { mutableStateOf("home") }
 
+    // button 3
+    var minutesInput by remember { mutableStateOf("") }
+    var secondsInput by remember { mutableStateOf("") }
+
+    var remainingSeconds by remember { mutableStateOf(0) }
+    var isTimerRunning by remember { mutableStateOf(false) }
+
+    var pokemonName by remember { mutableStateOf("") }
+    var pokemonImageUrl by remember { mutableStateOf("") }
+    var pokemonType by remember { mutableStateOf("") }
+    var pokemonTotalStats by remember { mutableStateOf(0) }
+    var showPokemon by remember { mutableStateOf(false) }
+    var pokemonRarity by remember { mutableStateOf("") }
+    val pokemonTeam = remember {
+        mutableStateListOf<Pokemon>()
+    }
+
+    var teamMessage by remember {
+        mutableStateOf("")
+    }
+
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             val nameJson = fetchApi(apiBaseUrl, "/name")
@@ -125,11 +151,33 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
             clientIpText = "Client IP: ${getClientIp()}"
         }
     }
+    LaunchedEffect(isTimerRunning) {
+        if (isTimerRunning) {
+
+            while (remainingSeconds > 0) {
+                delay(1000)
+                remainingSeconds--
+            }
+
+            // Timer finished, now get Pokémon FIRST
+            val pokemon = fetchRandomPokemon()
+
+            if (pokemon != null) {
+                pokemonName = pokemon.name
+                pokemonImageUrl = pokemon.imageUrl
+                pokemonType = pokemon.type
+                pokemonTotalStats = pokemon.totalStats
+                showPokemon = true
+                pokemonRarity = pokemon.rarity
+            }
+            isTimerRunning = false
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(top = 24.dp)
+            .padding(top = 44.dp)
     ) {
 
         if (currentScreen == "home") {
@@ -186,9 +234,10 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+
 
             // Button 2
+            Spacer(modifier = Modifier.height(44.dp))
             Button(
                 onClick = {
                     currentScreen = "button2"
@@ -206,6 +255,16 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text("Button 2: Live Updates")
+            }
+            // Button 3
+            Spacer(modifier = Modifier.height(44.dp))
+            Button(
+                onClick = {
+                    currentScreen = "button3"
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text("Button 3: Timer")
             }
         }
 
@@ -238,6 +297,144 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
                 PixelGrid(
                     pixels = pixels
                 )
+            }
+        }
+        else if (currentScreen == "button3") {
+            val displayMinutes = remainingSeconds / 60
+            val displaySeconds = remainingSeconds % 60
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+
+                Text("Set a Timer")
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = minutesInput,
+                    onValueChange = { newValue ->
+                        minutesInput = newValue.filter { it.isDigit() }
+                    },
+                    label = {
+                        Text("Minutes")
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = secondsInput,
+                    onValueChange = { newValue ->
+                        secondsInput = newValue.filter { it.isDigit() }
+                    },
+                    label = {
+                        Text("Seconds")
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        val minutes = minutesInput.toIntOrNull() ?: 0
+                        val seconds = secondsInput.toIntOrNull() ?: 0
+                        teamMessage = ""
+                        showPokemon = false
+                        remainingSeconds = minutes * 60 + seconds
+
+                        if (remainingSeconds > 0) {
+                            isTimerRunning = true
+                        }
+                    }
+                ) {
+                    Text("Start Timer")
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = String.format(
+                        "%02d:%02d",
+                        displayMinutes,
+                        displaySeconds
+                    )
+                )
+                if (showPokemon) {
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text("A wild Pokémon appeared!")
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    AsyncImage(
+                        model = pokemonImageUrl,
+                        contentDescription = pokemonName,
+                        modifier = Modifier.size(160.dp)
+                    )
+
+                    Text("Name: $pokemonName",color = rarityColor(pokemonRarity))
+                    Text("Total Stats: $pokemonTotalStats",color = rarityColor(pokemonRarity))
+                    Text("Rarity: $pokemonRarity",color = rarityColor(pokemonRarity))
+
+                    // Team System
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (pokemonTeam.size < 3) {
+                                    val pokemon = Pokemon(
+                                        name = pokemonName,
+                                        imageUrl = pokemonImageUrl,
+                                        type = pokemonType,
+                                        totalStats = pokemonTotalStats,
+                                        rarity = pokemonRarity
+                                    )
+
+                                    pokemonTeam.add(pokemon)
+
+                                    teamMessage = "$pokemonName added to your team!"
+
+                                    showPokemon = false
+                                } else {
+                                    teamMessage = "Your team is full!"
+                                }
+                            }
+                        ) {
+                            Text("Add to Team")
+                        }
+
+                        Button(
+                            onClick = {
+                                teamMessage = "$pokemonName was skipped."
+                                showPokemon = false
+                            }
+                        ) {
+                            Text("Skip")
+                        }
+                        if (teamMessage.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(teamMessage)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text("Your Team (${pokemonTeam.size}/3)")
+
+                    pokemonTeam.forEach { pokemon ->
+                        Text(
+                            text = "${pokemon.name} - ${pokemon.rarity}",
+                            color = rarityColor(pokemon.rarity)
+                        )
+                    }
+                }
             }
         }
     }
@@ -409,5 +606,117 @@ private fun colorFromHex(hex: String): Color {
         Color(android.graphics.Color.parseColor(hex))
     } catch (e: Exception) {
         Color.White
+    }
+}
+
+// button 3
+data class Pokemon(
+    val name: String,
+    val imageUrl: String,
+    val type: String,
+    val totalStats: Int,
+    val rarity: String
+)
+
+private fun getRarity(totalStats: Int): String {
+    return when {
+        totalStats < 350 -> "Common"
+        totalStats < 450 -> "Uncommon"
+        totalStats < 550 -> "Rare"
+        totalStats < 600 -> "Very Rare"
+        else -> "Ultra Rare"
+    }
+}
+
+// pick a random pokemon
+private suspend fun fetchRandomPokemon(): Pokemon? {
+    return withContext(Dispatchers.IO) {
+        try {
+            repeat(20) {
+                val randomId = (1..151).random()
+
+                val client = OkHttpClient()
+
+                val request = Request.Builder()
+                    .url("https://pokeapi.co/api/v2/pokemon/$randomId")
+                    .build()
+
+                val response = client.newCall(request).execute()
+
+                if (!response.isSuccessful) {
+                    return@repeat
+                }
+
+                val body = response.body?.string()
+                    ?: return@repeat
+
+                val json = JSONObject(body)
+
+                val name = json.getString("name")
+
+                val imageUrl =
+                    json.getJSONObject("sprites")
+                        .getString("front_default")
+
+                val typesArray = json.getJSONArray("types")
+
+                val type =
+                    typesArray
+                        .getJSONObject(0)
+                        .getJSONObject("type")
+                        .getString("name")
+
+                val statsArray = json.getJSONArray("stats")
+
+                var totalStats = 0
+
+                for (i in 0 until statsArray.length()) {
+                    totalStats +=
+                        statsArray
+                            .getJSONObject(i)
+                            .getInt("base_stat")
+                }
+
+                if (shouldAcceptPokemon(totalStats)) {
+                    return@withContext Pokemon(
+                        name = name,
+                        imageUrl = imageUrl,
+                        type = type,
+                        totalStats = totalStats,
+                        rarity = getRarity(totalStats)
+                    )
+                }
+            }
+
+            null
+
+        } catch (e: Exception) {
+            Log.e("Pokemon", "Failed to fetch Pokémon", e)
+            null
+        }
+    }
+}
+
+// helper function for rarity
+private fun shouldAcceptPokemon(totalStats: Int): Boolean {
+    val chance = when {
+        totalStats < 350 -> 100
+        totalStats < 450 -> 65
+        totalStats < 550 -> 30
+        totalStats < 600 -> 12
+        else -> 3
+    }
+
+    return (1..100).random() <= chance
+}
+
+private fun rarityColor(rarity: String): Color {
+    return when (rarity) {
+        "Common" -> Color.Black
+        "Uncommon" -> Color.Blue
+        "Rare" -> Color(0xFF800080)      // Purple
+        "Very Rare" -> Color(0xFFFFA500) // Orange
+        "Ultra Rare" -> Color(0xFFFFD700) // Gold
+        else -> Color.Black
     }
 }
