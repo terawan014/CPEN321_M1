@@ -62,7 +62,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import coil.compose.AsyncImage
-import androidx.compose.runtime.mutableStateListOf
+import androidx.activity.compose.BackHandler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
+
     var loginStatusText by remember { mutableStateOf("Not signed in") }
     var isLoggedIn by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -134,6 +135,10 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
 
     var teamMessage by remember {
         mutableStateOf("")
+    }
+
+    BackHandler(enabled = currentScreen != "home") {
+        currentScreen = "home"
     }
 
     LaunchedEffect(isLoggedIn) {
