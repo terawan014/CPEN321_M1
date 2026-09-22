@@ -53,7 +53,7 @@ Example:
 ```properties
 sdk.dir=<YOUR_ANDROID_SDK_PATH>
 API_BASE_URL=https://34.123.228.126
-GOOGLE_CLIENT_ID=<YOUR_GOOGLE_WEB_CLIENT_ID>
+GOOGLE_CLIENT_ID=645452205793-vt9m94i74rijk3qb929h0ij6v7iohhik.apps.googleusercontent.com
 ```
 
 
