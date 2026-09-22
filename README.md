@@ -1,4 +1,4 @@
-# CPEN321_26W1_ProjectName
+# CPEN321_26W1_M1
 
 _Keep this README up to date with the steps required to build and run the frontend and backend (including any scripts, config files, and environment variables). TAs ill follow these instructions._
 
@@ -19,6 +19,13 @@ Install the following before the frontend or backend setup steps:
 - [Java 17](https://adoptium.net/temurin/releases/?version=17)
 - [Android SDK](https://developer.android.com/studio#command-tools) with API level 36+ (Android 16)
 
+Java must be available from the command line. Verify with:
+
+```bash
+java -version
+```
+On Windows, if java is not found, set JAVA_HOME to the Java 17 installation directory and add %JAVA_HOME%\bin to PATH
+
 ### Setup
 
 1. **Open project**: Open the `frontend/` directory in Android Studio
@@ -31,9 +38,23 @@ Install the following before the frontend or backend setup steps:
    ```bash
    cp frontend/local.properties.example frontend/local.properties
    ```
-   Set at least:
-   - `sdk.dir`: path to your Android SDK. Android Studio usually writes this the first time you open `frontend/`. On Mac it is often `sdk.dir=/Users/<username>/Library/Android/sdk`.
-   - `API_BASE_URL`: backend URL baked into the APK. Use `http://10.0.2.2:3000` for the emulator (`10.0.2.2` is the host machine). For a physical device on the same Wi-Fi, use `http://<your-lan-ip>:3000`.
+Set at least:
+
+- `sdk.dir`: path to your Android SDK. Android Studio usually writes this the first time you open `frontend/`.
+- `API_BASE_URL`: backend URL baked into the APK.
+  - For the deployed M1 backend, use:
+    `https://34.123.228.126`
+  - For local development using an Android emulator, use:
+    `http://10.0.2.2:3000`
+- `GOOGLE_CLIENT_ID`: Google OAuth Web Client ID used for Google Sign-In.
+
+Example:
+
+```properties
+sdk.dir=<YOUR_ANDROID_SDK_PATH>
+API_BASE_URL=https://34.123.228.126
+GOOGLE_CLIENT_ID=<YOUR_GOOGLE_WEB_CLIENT_ID>
+```
 
 
 ### Build and Run
@@ -64,9 +85,10 @@ cp backend/.env.example backend/.env
 ```
 
 Set at least:
-- `JWT_SECRET`: a long random string used to sign auth tokens.
-- `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
+- `JWT_SECRET`: a long random string used to sign auth tokens. Do not commit the real value.
+- `MONGODB_URI`: MongoDB connection string used for local development. Do not commit database credentials.
 - `PORT` (optional): defaults to `3000` if unset.
+- `SERVER_PUBLIC_IP`: public IP returned by the backend server IP endpoint. For the deployed M1 backend, use `34.123.228.126`.
 
 
 ### Option 1: Run locally
